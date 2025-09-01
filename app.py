@@ -8,7 +8,11 @@ def index():
 
 @app.route('/usuario/<nombre>')
 def usuario(nombre):
-    return render_template(f'usuario/{nombre}.html', nombre=nombre)
+    return render_template('usuario.html', nombre=nombre)
+
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
