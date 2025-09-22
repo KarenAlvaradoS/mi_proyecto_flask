@@ -1,125 +1,99 @@
-from Conexion.conexion import obtener_conexion
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, render_template, redirect, url_for, session
+from models import Usuario
 
 app = Flask(__name__)
+app.secret_key = "clave_secreta"  # Necesario para manejar sesiones de usuario
 
 # -------------------------------
-# Rutas HTML
+# Página de inicio
 # -------------------------------
 @app.route('/')
 def index():
+    # Simple página de bienvenida con enlaces a registro y login
     return render_template('index.html')
 
-@app.route('/usuario/<nombre>')
-def usuario(nombre):
-    return render_template('usuario.html', nombre=nombre)
 
-@app.route('/about')
-def about():
-    return render_template('about.html')
+# -------------------------------
+# Registro de usuario
+# -------------------------------
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        # Tomo los datos que ingresó el usuario
+        nombre = request.form['nombre']
+        email = request.form['email']
+        password = request.form['password']
+
+        # Verifico que el email no esté registrado
+        if Usuario.obtener_por_mail(email):
+            return "El email ya está registrado"
+
+        # Si no existe, registro el usuario
+        Usuario.registrar(nombre, email, password)
+        return redirect(url_for('login'))  # Después voy al login
+
+    # Si es GET, muestro el formulario
+    return render_template('register.html')
 
 
 # -------------------------------
-# NUEVAS RUTAS: MySQL y CRUD
+# Login de usuario
 # -------------------------------
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
 
-# Ruta para probar la conexión a la base de datos
-@app.route('/test_db')
-def test_db():
-    try:
-        with obtener_conexion() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT DATABASE();")
-                resultado = cursor.fetchone()
-        return f"Conectado a la base de datos: {resultado[0]}"
-    except Exception as e:
-        return {"error": str(e)}, 500
+        usuario = Usuario.obtener_por_mail(email)  # Busco el usuario por email
+        if usuario and usuario.password == password:
+            # Creo la sesión para recordar al usuario
+            session['usuario_id'] = usuario.id_usuario
+            session['usuario_nombre'] = usuario.nombre
+            return redirect(url_for('dashboard'))
+        else:
+            # Si no coincide, muestro error
+            return "Email o contraseña incorrectos"
 
-
-# Ruta: listar todos los usuarios
-@app.route('/usuarios', methods=['GET'])
-def listar_usuarios():
-    try:
-        with obtener_conexion() as conn:
-            with conn.cursor(dictionary=True) as cursor:
-                cursor.execute("SELECT id_usuario, nombre, mail FROM usuarios")
-                rows = cursor.fetchall()
-        return jsonify(rows)
-    except Exception as e:
-        return {"error": str(e)}, 500
-
-
-# Ruta: crear un nuevo usuario
-@app.route('/usuario', methods=['POST'])
-def crear_usuario():
-    data = request.get_json()
-    nombre = data.get('nombre')
-    mail = data.get('mail')
-
-    if not nombre or not mail:
-        return jsonify({"error": "Nombre y mail son requeridos"}), 400
-
-    try:
-        with obtener_conexion() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "INSERT INTO usuarios (nombre, mail) VALUES (%s, %s)",
-                    (nombre, mail)
-                )
-                conn.commit()
-                nuevo_id = cursor.lastrowid
-        return jsonify({'id_usuario': nuevo_id, 'nombre': nombre, 'mail': mail}), 201
-    except Exception as e:
-        return {"error": str(e)}, 500
-
-
-# Ruta: actualizar un usuario
-@app.route('/usuario/<int:id_usuario>', methods=['PUT'])
-def actualizar_usuario(id_usuario):
-    data = request.get_json()
-    nombre = data.get('nombre')
-    mail = data.get('mail')
-
-    if not nombre or not mail:
-        return jsonify({"error": "Nombre y mail son requeridos"}), 400
-
-    try:
-        with obtener_conexion() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE usuarios SET nombre=%s, mail=%s WHERE id_usuario=%s",
-                    (nombre, mail, id_usuario)
-                )
-                conn.commit()
-                filas = cursor.rowcount
-        if filas == 0:
-            return jsonify({'error': 'Usuario no encontrado'}), 404
-        return jsonify({'id_usuario': id_usuario, 'nombre': nombre, 'mail': mail})
-    except Exception as e:
-        return {"error": str(e)}, 500
-
-
-# Ruta: eliminar un usuario
-@app.route('/usuario/<int:id_usuario>', methods=['DELETE'])
-def eliminar_usuario(id_usuario):
-    try:
-        with obtener_conexion() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "DELETE FROM usuarios WHERE id_usuario=%s",
-                    (id_usuario,)
-                )
-                conn.commit()
-                filas = cursor.rowcount
-        if filas == 0:
-            return jsonify({'error': 'Usuario no encontrado'}), 404
-        return '', 204
-    except Exception as e:
-        return {"error": str(e)}, 500
+    # Si es GET, muestro el formulario de login
+    return render_template('login.html')
 
 
 # -------------------------------
-# Ejecutar aplicación
+# Dashboard
 # -------------------------------
+@app.route('/dashboard')
+def dashboard():
+    # Verifico que el usuario haya iniciado sesión
+    if 'usuario_id' not in session:
+        return redirect(url_for('login'))
+    # Muestro la página principal del usuario con su nombre
+    return render_template('dashboard.html', nombre=session['usuario_nombre'])
+
+
+# -------------------------------
+# Ver todos los usuarios
+# -------------------------------
+@app.route('/ver_usuarios')
+def ver_usuarios():
+    # Solo usuarios logueados pueden ver la lista
+    if 'usuario_id' not in session:
+        return redirect(url_for('login'))
+    
+    usuarios = Usuario.obtener_todos()  # Traigo todos los usuarios
+    return render_template('ver_usuarios.html', usuarios=usuarios)
+
+
+# -------------------------------
+# Cerrar sesión
+# -------------------------------
+@app.route('/logout')
+def logout():
+    # Limpio la sesión para cerrar sesión
+    session.clear()
+    return redirect(url_for('login'))
+
+
 if __name__ == '__main__':
+    # Arranco la app en modo debug
     app.run(debug=True)
