@@ -1,17 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Registro</title>
-</head>
-<body>
-    <h1>Registrar Usuario</h1>
-    <!-- Formulario de registro -->
-    <form method="post">
-        Nombre: <input type="text" name="nombre" required><br>
-        Email: <input type="email" name="email" required><br>
-        Contraseña: <input type="password" name="password" required><br>
-        <button type="submit">Registrar</button>
-    </form>
-    <a href="/login">Ya tengo cuenta</a>
-</body>
-</html>
+<form method="POST">
+  Nombre: <input type="text" name="nombre"><br>
+  Email: <input type="text" name="email"><br>
+  Contraseña: <input type="password" name="password"><br>
+  <input type="submit" value="Registrarse">
+</form>
+<a href="{{ url_for('login') }}">Iniciar Sesión</a>

@@ -1,12 +1,2 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard</title>
-</head>
-<body>
-    <!-- Muestro nombre del usuario logueado -->
-    <h1>Bienvenido, {{ nombre }}!</h1>
-    <a href="/ver_usuarios">Ver usuarios</a><br>
-    <a href="/logout">Cerrar sesión</a>
-</body>
-</html>
+<h1>Bienvenido {{ nombre }}</h1>
+<a href="{{ url_for('logout') }}">Cerrar Sesión</a>
